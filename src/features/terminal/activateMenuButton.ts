@@ -2,26 +2,26 @@ import { Terminal, TerminalOptions, Uri } from 'vscode';
 import { activeTerminal } from '../../common/window.apis';
 import { TerminalActivation, TerminalEnvironment } from './terminalManager';
 import { EnvironmentManagers, PythonProjectManager } from '../../internal.api';
-import { PythonEnvironment } from '../../api';
+import { PythonEnvironment, PythonProject } from '../../api';
 import { isActivatableEnvironment } from '../common/activation';
 import { executeCommand } from '../../common/command.api';
-import { getWorkspaceFolders } from '../../common/workspace.apis';
+import { getConfiguration, getWorkspaceFolders } from '../../common/workspace.apis';
 import { isTaskTerminal } from './utils';
 
-async function getDistinctProjectEnvs(pm: PythonProjectManager, em: EnvironmentManagers): Promise<PythonEnvironment[]> {
-    const projects = pm.getProjects();
+async function getDistinctProjectEnvs(
+    em: EnvironmentManagers,
+    projects: readonly PythonProject[],
+): Promise<PythonEnvironment[]> {
     const envs: PythonEnvironment[] = [];
-    const projectEnvs = await Promise.all(
+    await Promise.all(
         projects.map(async (p) => {
             const manager = em.getEnvironmentManager(p.uri);
-            return manager?.get(p.uri);
+            const e = await manager?.get(p.uri);
+            if (e && !envs.find((x) => x.envId.id === e.envId.id)) {
+                envs.push(e);
+            }
         }),
     );
-    projectEnvs.forEach((e) => {
-        if (e && !envs.find((x) => x.envId.id === e.envId.id)) {
-            envs.push(e);
-        }
-    });
     return envs;
 }
 
@@ -44,7 +44,7 @@ export async function getEnvironmentForTerminal(
         const manager = em.getEnvironmentManager(projects[0].uri);
         env = await manager?.get(projects[0].uri);
     } else {
-        const envs = await getDistinctProjectEnvs(pm, em);
+        const envs = await getDistinctProjectEnvs(em, projects);
         if (envs.length === 1) {
             // If we have only one distinct environment, then use that.
             env = envs[0];
@@ -75,12 +75,21 @@ export async function getEnvironmentForTerminal(
     return env;
 }
 
+function getShowActivateButtonSetting(): boolean {
+    const config = getConfiguration('python-envs');
+    return config.get<boolean>('terminal.showActivateButton', false);
+}
+
 export async function updateActivateMenuButtonContext(
     tm: TerminalEnvironment & TerminalActivation,
     pm: PythonProjectManager,
     em: EnvironmentManagers,
     terminal?: Terminal,
 ): Promise<void> {
+    if (!getShowActivateButtonSetting()) {
+        return;
+    }
+
     const selected = terminal ?? activeTerminal();
 
     if (!selected) {
@@ -100,6 +109,10 @@ export async function setActivateMenuButtonContext(
     terminal: Terminal,
     env: PythonEnvironment,
 ): Promise<void> {
+    if (!getShowActivateButtonSetting()) {
+        return;
+    }
+
     const activatable = !isTaskTerminal(terminal) && isActivatableEnvironment(env);
     await executeCommand('setContext', 'pythonTerminalActivation', activatable);
 
