@@ -1,6 +1,8 @@
 import * as path from 'path';
 import { EventEmitter, LogOutputChannel, MarkdownString, ProgressLocation, ThemeIcon, Uri, window } from 'vscode';
 import {
+    CreateEnvironmentOptions,
+    CreateEnvironmentScope,
     DidChangeEnvironmentEventArgs,
     DidChangeEnvironmentsEventArgs,
     EnvironmentChangeKind,
@@ -76,6 +78,10 @@ export class SysPythonManager implements EnvironmentManager {
     refresh(_scope: RefreshEnvironmentsScope): Promise<void> {
         return this.internalRefresh(true, SysManagerStrings.sysManagerRefreshing);
     }
+
+    //create(scope: CreateEnvironmentScope, options?: CreateEnvironmentOptions): Promise<PythonEnvironment | undefined> {
+    //    regex = /^(\S*)-([0-9]+\.[0-9]+\.[0-9]+(?:[a-z0-9]+)?(?:\+[a-zA-Z0-9]+)?)-([a-z]+)-.*$/gm;
+    //}
 
     private async internalRefresh(hardRefresh: boolean, title: string) {
         await window.withProgress(
